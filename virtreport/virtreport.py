@@ -1,4 +1,6 @@
 import argparse
+import sys
+import traceback
 from typing import Callable
 
 import libvirt
@@ -45,6 +47,7 @@ def get_storage(conn: libvirt.virConnect, pool_cb: Callable, volume_cb: Callable
             volume_tree = ET.fromstring(volume_xml)
             volume_dict["type"] = volume_tree.attrib['type']
             volume_dict["name"] = volume_tree.find('name').text
+            volume_dict["target"] = volume_tree.find("target/path").text
             # capacity is reported in bytes
             volume_dict["capacity"] = int(volume_tree.find("capacity").text) / GB
             volume_cb(volume_dict)
@@ -70,6 +73,7 @@ def get_domains(conn: libvirt.virConnect, dom_cb: Callable, disk_cb: Callable) -
         dom_dict["active"] = domain.isActive()
         dom_cb(dom_dict)
         for disk_tree in dom_tree.findall("devices/disk"):
+            # print(ET.tostring(disk_tree))
             disk_dict = {"item": "disk", "host": hostname, "domain": dom_dict["name"]}
             disk_dict["type"] = disk_tree.attrib["type"]
             disk_dict["device"] = disk_tree.attrib["device"]
@@ -110,7 +114,14 @@ if __name__ == "__main__":
     wb = openpyxl.Workbook()
     save_item_lambda = lambda i: save_item(wb, i)
     for host in args.hosts:
-        conn = connect(args.protocol, args.user, host, save_item_lambda)
-        get_storage(conn, save_item_lambda, save_item_lambda)
-        get_domains(conn, save_item_lambda, save_item_lambda)
+        print("Connecting to {h}".format(h=host))
+        try:
+            conn = connect(args.protocol, args.user, host, save_item_lambda)
+            get_storage(conn, save_item_lambda, save_item_lambda)
+            get_domains(conn, save_item_lambda, save_item_lambda)
+        except:
+            print("Failed to connect to {h}".format(h=host), file=sys.stderr)
+            traceback.print_exc()
+    print("Saving report to {r}".format(r=args.output))
     wb.save(args.output)
+
