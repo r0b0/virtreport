@@ -1,7 +1,10 @@
+import argparse
 from typing import Callable
 
 import libvirt
 import xml.etree.ElementTree as ET
+
+import openpyxl
 
 KB = 1024
 MB = KB * 1024
@@ -72,13 +75,42 @@ def get_domains(conn: libvirt.virConnect, dom_cb: Callable, disk_cb: Callable) -
             disk_dict["device"] = disk_tree.attrib["device"]
             source = disk_tree.find("source")
             if source is not None:
-                disk_dict["source"] = source.attrib["dev"]
+                if "dev" in source.attrib:
+                    disk_dict["source"] = source.attrib["dev"]
+                elif "file" in source.attrib:
+                    disk_dict["source"] = source.attrib["file"]
             else:
                 disk_dict["source"] = ""
             disk_cb(disk_dict)
 
 
+def save_item(worksheet: openpyxl.Workbook, item: dict):
+    for sheet in worksheet:
+        # existing sheet, we just append
+        if sheet.title == item["item"]:
+            sheet.append(list(item.values()))
+            return
+    # no existing sheet, create one
+    sheet = worksheet.create_sheet(item["item"])
+    sheet.append(list(item.keys()))  # header row
+    sheet.append(list(item.values()))
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser("virtreport")
+    parser.add_argument("-p", "--protocol", default="qemu")
+    parser.add_argument("-u", "--user", default="")
+    parser.add_argument("-o", "--output", default="virt_report.xlsx")
+    parser.add_argument("hosts", nargs="*", default=[""])
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    conn = connect("qemu", "", "", print)
-    get_storage(conn, print, print)
-    get_domains(conn, print, print)
+    args = parse_arguments()
+    wb = openpyxl.Workbook()
+    save_item_lambda = lambda i: save_item(wb, i)
+    for host in args.hosts:
+        conn = connect(args.protocol, args.user, host, save_item_lambda)
+        get_storage(conn, save_item_lambda, save_item_lambda)
+        get_domains(conn, save_item_lambda, save_item_lambda)
+    wb.save(args.output)
