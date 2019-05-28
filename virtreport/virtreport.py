@@ -12,6 +12,14 @@ KB = 1024
 MB = KB * 1024
 GB = MB * 1024
 
+# TODO hashbang
+# TODO remove the first automatic sheet
+# TODO sheet: host column mem_used =SUMIF(domain!A$2:A$62, host!A2, domain!E$2:E$62)
+# TODO sheet: pool column host:pool =CONCATENATE(A2, ":", F2)
+# TODO all sheets: column host by link
+# TODO figure out how to calculate available space in pools and hosts
+# TODO figure out how to handle migration of domains (and associated disks/volumes)
+
 
 def connect(proto, user, address, host_cb: Callable) -> libvirt.virConnect:
     connection_string = "{p}://{u}@{a}/system".format(
