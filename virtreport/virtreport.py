@@ -40,6 +40,9 @@ def connect(proto, user, address, host_cb: Callable) -> libvirt.virConnect:
 def get_storage(conn: libvirt.virConnect, pool_cb: Callable, volume_cb: Callable) -> None:
     hostname = conn.getHostname()
     for pool in conn.listAllStoragePools():
+        if not pool.isActive():
+            print("Pool {p} is not active, skipping".format(p=pool.name()))
+            continue
         pool_dict = {"item": "pool", "host": hostname}
         pool_xml = pool.XMLDesc()
         pool_tree = ET.fromstring(pool_xml)
